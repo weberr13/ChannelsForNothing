@@ -10,19 +10,19 @@ import (
 )
 
 var (
-	writer *ActorWriter
+	writer     *ActorWriter
 	iterations = 100
-	closeTime = time.Duration(iterations/2-35) * time.Millisecond
+	closeTime  = time.Duration(iterations/2-35) * time.Millisecond
 )
 
 func init() {
-	writer = NewActorWriter(context.Background(), 
+	writer = NewActorWriter(context.Background(),
 		func(_ string) (io.WriteCloser, error) {
-		return &spyWriter{
-			writeDelay: 1 * time.Millisecond,
-			closeDelay: closeTime,
-		}, nil
-	})
+			return &spyWriter{
+				writeDelay: 1 * time.Millisecond,
+				closeDelay: closeTime,
+			}, nil
+		})
 }
 
 func TestActorHandlerParallel(t *testing.T) {
@@ -34,7 +34,7 @@ func TestActorHandlerParallel(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		<-time.After(time.Duration(iterations)*time.Millisecond+closeTime)
+		<-time.After(time.Duration(iterations)*time.Millisecond + closeTime)
 		close(timeout)
 	}()
 
