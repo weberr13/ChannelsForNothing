@@ -11,7 +11,7 @@ func init() {
 
 type writerRequest struct {
 	name     string
-	response chan chan WriteRequest
+	response chan WriteRequester
 }
 
 type dumpName struct {
@@ -25,8 +25,11 @@ type WriteRequest struct {
 	response chan error
 }
 
-// NewWriteRequest produces a WriteRequest suitable for sending to a Writer
-func NewWriteRequest(ctx context.Context, q chan WriteRequest, data []byte) WriteRequest {
+// WriteRequester accepts requests to write
+type WriteRequester chan WriteRequest
+
+// Request produces a WriteRequest suitable for sending to a Writer
+func (q WriteRequester) Request(ctx context.Context, data []byte) WriteRequest {
 	r := WriteRequest{
 		Data:     data,
 		response: make(chan error),
@@ -55,7 +58,7 @@ func (wr WriteRequest) Then(ctx context.Context, l func(error)) {
 // WriteActor does writes named queues on behalf of others
 type WriteActor interface {
 	Start(ctx context.Context)
-	Writer(ctx context.Context, name string) (chan WriteRequest, error)
+	Writer(ctx context.Context, name string) (WriteRequester, error)
 	Dump(ctx context.Context, name string) ([]byte, error)
 }
 
@@ -88,7 +91,7 @@ func (w AsyncWriter) dump(ctx context.Context, du dumpName, dumpers map[string]c
 	}
 }
 
-func (w AsyncWriter) receiver(ctx context.Context, inq chan WriteRequest,
+func (w AsyncWriter) receiver(ctx context.Context, inq WriteRequester,
 	dumpQ chan dumpName, name string) {
 	data := w.open(name)
 	for {
@@ -115,7 +118,7 @@ func (w AsyncWriter) receiver(ctx context.Context, inq chan WriteRequest,
 }
 
 func (w AsyncWriter) actor(ctx context.Context) {
-	writers := make(map[string]chan WriteRequest)
+	writers := make(map[string]WriteRequester)
 	dumpers := make(map[string]chan dumpName, 100)
 	for {
 		select {
@@ -130,7 +133,7 @@ func (w AsyncWriter) actor(ctx context.Context) {
 				continue
 			}
 			dumpQ := make(chan dumpName)
-			inq = make(chan WriteRequest, 1000)
+			inq = make(WriteRequester, 1000)
 			writers[req.name] = inq
 			dumpers[req.name] = dumpQ
 			go w.receiver(ctx, inq, dumpQ, req.name)
@@ -164,10 +167,10 @@ func (w AsyncWriter) Dump(ctx context.Context, name string) ([]byte, error) {
 }
 
 // Writer returns a channel for WriteRequests
-func (w AsyncWriter) Writer(ctx context.Context, name string) (chan WriteRequest, error) {
+func (w AsyncWriter) Writer(ctx context.Context, name string) (WriteRequester, error) {
 	req := writerRequest{
 		name:     name,
-		response: make(chan chan WriteRequest),
+		response: make(chan WriteRequester),
 	}
 	select {
 	case <-ctx.Done():

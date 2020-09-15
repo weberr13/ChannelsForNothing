@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func getSyncWriter(concurrency int, prepRatio int) (*SyncWriter, map[string]chan WriteRequest) {
+func getSyncWriter(concurrency int, prepRatio int) (*SyncWriter, map[string]WriteRequester) {
 	sync := NewSyncWriter(NewSlowQ(prepRatio))
-	names := map[string]chan WriteRequest{}
+	names := map[string]WriteRequester{}
 	for i := 0; i < concurrency; i++ {
 		names[fmt.Sprintf("%d-writer", i)] = nil
 	}
@@ -33,7 +33,7 @@ func TestSyncWriterBurstMode(t *testing.T) {
 	burstSync(t, sync, names, 100, false)
 }
 
-func syncSync(t canFatal, sync *SyncWriter, names map[string]chan WriteRequest, count int, ordered bool) {
+func syncSync(t canFatal, sync *SyncWriter, names map[string]WriteRequester, count int, ordered bool) {
 	for i := 0; i < count; i++ {
 		for name := range names {
 			sync.Write(context.Background(), name, []byte(fmt.Sprintf("%s:%d", name, i)))
@@ -48,7 +48,7 @@ func syncSync(t canFatal, sync *SyncWriter, names map[string]chan WriteRequest, 
 	}
 }
 
-func syncAsync(t canFatal, s *SyncWriter, names map[string]chan WriteRequest, count int, ordered bool) {
+func syncAsync(t canFatal, s *SyncWriter, names map[string]WriteRequester, count int, ordered bool) {
 	wg := &sync.WaitGroup{}
 	for name := range names {
 		for i := 0; i < count; i++ {
@@ -69,7 +69,7 @@ func syncAsync(t canFatal, s *SyncWriter, names map[string]chan WriteRequest, co
 	}
 }
 
-func burstSync(t canFatal, s *SyncWriter, names map[string]chan WriteRequest, count int, ordered bool) {
+func burstSync(t canFatal, s *SyncWriter, names map[string]WriteRequester, count int, ordered bool) {
 	wg := &sync.WaitGroup{}
 	for name := range names {
 		for j := 0; j < 10; j++ {

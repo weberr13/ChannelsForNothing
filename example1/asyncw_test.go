@@ -40,10 +40,10 @@ func TestAsyncWriterBurstAsyncMode(t *testing.T) {
 }
 
 func getWriter(ctx context.Context, t canFatal, concurrency int,
-	prepRatio int) (*AsyncWriter, map[string]chan WriteRequest) {
+	prepRatio int) (*AsyncWriter, map[string]WriteRequester) {
 	async := NewAsyncWriter(NewSlowQ(prepRatio))
 	async.Start(ctx)
-	names := map[string]chan WriteRequest{}
+	names := map[string]WriteRequester{}
 	for i := 0; i < concurrency; i++ {
 		names[fmt.Sprintf("%d-writer", i)] = nil
 	}
@@ -58,10 +58,10 @@ func getWriter(ctx context.Context, t canFatal, concurrency int,
 	return async, names
 }
 
-func asyncSyncMode(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]chan WriteRequest, sendCount int, ordered bool) {
+func asyncSyncMode(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]WriteRequester, sendCount int, ordered bool) {
 	for name, q := range names {
 		for i := 0; i < sendCount; i++ {
-			NewWriteRequest(ctx, q, []byte(fmt.Sprintf("%s:%d", name, i))).
+			q.Request(ctx, []byte(fmt.Sprintf("%s:%d", name, i))).
 				Then(ctx, func(err error) {
 					if err != nil {
 						t.Fatal(err)
@@ -78,16 +78,16 @@ func asyncSyncMode(ctx context.Context, t canFatal, async *AsyncWriter, names ma
 	}
 }
 
-func burstMode(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]chan WriteRequest, sendCount int, ordered bool) {
+func burstMode(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]WriteRequester, sendCount int, ordered bool) {
 	wg := &sync.WaitGroup{}
 	errors := make(chan error, 10)
 	for name, q := range names {
 		for j := 0; j < 10; j++ {
 			for i := 0; i < sendCount; i++ {
 				wg.Add(1)
-				go func(name string, q chan WriteRequest, i int) {
+				go func(name string, q WriteRequester, i int) {
 					defer wg.Done()
-					NewWriteRequest(ctx, q, []byte(fmt.Sprintf("%s:%d", name, i))).
+					q.Request(ctx, []byte(fmt.Sprintf("%s:%d", name, i))).
 						Then(ctx, func(err error) {
 							if err != nil {
 								select {
@@ -119,7 +119,7 @@ func burstMode(ctx context.Context, t canFatal, async *AsyncWriter, names map[st
 	}
 }
 
-func checkResults(ctx context.Context, async Dumper, names map[string]chan WriteRequest, sendCount int, ordered bool) error {
+func checkResults(ctx context.Context, async Dumper, names map[string]WriteRequester, sendCount int, ordered bool) error {
 	out := make(map[string][]byte)
 	for name := range names {
 		var err error
@@ -149,15 +149,15 @@ func checkResults(ctx context.Context, async Dumper, names map[string]chan Write
 	return nil
 }
 
-func fullAsync(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]chan WriteRequest, sendCount int, ordered bool) {
+func fullAsync(ctx context.Context, t canFatal, async *AsyncWriter, names map[string]WriteRequester, sendCount int, ordered bool) {
 	wg := &sync.WaitGroup{}
 	errors := make(chan error, 10)
 	for name, q := range names {
 		for i := 0; i < sendCount; i++ {
 			wg.Add(1)
-			go func(name string, q chan WriteRequest, i int) {
+			go func(name string, q WriteRequester, i int) {
 				defer wg.Done()
-				NewWriteRequest(ctx, q, []byte(fmt.Sprintf("%s:%d", name, i))).
+				q.Request(ctx, []byte(fmt.Sprintf("%s:%d", name, i))).
 					Then(ctx, func(err error) {
 						if err != nil {
 							select {
