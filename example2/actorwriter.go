@@ -14,7 +14,7 @@ type ActorWriter struct {
 }
 
 // NewActorWriter constructs for lazy init
-func NewActorWriter(ctx context.Context, 
+func NewActorWriter(ctx context.Context,
 	open func(string) (io.WriteCloser, error)) *ActorWriter {
 	w := &ActorWriter{
 		open:          open,

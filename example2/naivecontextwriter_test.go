@@ -50,7 +50,7 @@ func TestParallelContextHandler(t *testing.T) {
 	timeout := make(chan struct{})
 	finished := make(chan struct{})
 	go func() {
-		<-time.After(time.Duration(iterations)*time.Millisecond+closeTime)
+		<-time.After(time.Duration(iterations)*time.Millisecond + closeTime)
 		close(timeout)
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(),

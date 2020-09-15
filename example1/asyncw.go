@@ -26,11 +26,20 @@ type WriteRequest struct {
 }
 
 // NewWriteRequest produces a WriteRequest suitable for sending to a Writer
-func NewWriteRequest(data []byte) WriteRequest {
-	return WriteRequest{
+func NewWriteRequest(ctx context.Context, q chan WriteRequest, data []byte) WriteRequest {
+	r := WriteRequest{
 		Data:     data,
 		response: make(chan error),
 	}
+	select {
+	case <-ctx.Done():
+		go func() {
+			r.response <- ctx.Err()
+		}()
+		return r
+	case q <- r:
+	}
+	return r
 }
 
 // Then calls a function based on the result of the Write

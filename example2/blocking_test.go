@@ -36,8 +36,9 @@ func TestBlockingHandler(t *testing.T) {
 	verify(t, iterations, timeout, finished)
 }
 
-func verify(t *testing.T, iterations int, timeout chan struct{}, 
-	finished chan struct{}) {select {
+func verify(t *testing.T, iterations int, timeout chan struct{},
+	finished chan struct{}) {
+	select {
 	case <-timeout:
 		total := totalWrites()
 		if total == iterations {
