@@ -6,26 +6,6 @@ import (
 	"testing"
 )
 
-func myPromiseProcessor(privateData string, threadState map[string]interface{}) func(pr Promise) {
-	return func(pr Promise) {
-		me := pr.(*MyPromise)
-		me.data[privateData] = 1
-		if _, ok := threadState["count"] ; !ok {
-			threadState["count"] = []int{}
-		}
-		threadState["count"] = append(threadState["count"].([]int), 1)
-	}
-}
-
-func myPromisePostprocess(t *testing.T, i int) func(p Promise, err error) {
-	return func(p Promise, err error) {
-		me := p.(*MyPromise)
-		if me.data["found"].(int) != 1 || me.ident != i {
-			t.Fatal("mixed up")
-		}
-	}
-}
-
 func TestMyPromise(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -42,7 +22,7 @@ func TestMyPromise(t *testing.T) {
 	}()
 	for i := 0; i < 100; i++ {
 		q.Request(MyPromiseConstructor(i)).Then(ctx,
-			myPromisePostprocess(t, i))
+			myPromiseComplete(i))
 	}
 	cancel()
 	wg.Wait()
@@ -71,7 +51,8 @@ func TestMyPromiseAsync(t *testing.T) {
 		workers.Add(1)
 		go func(i int) {
 			defer workers.Done()
-			q.Request(MyPromiseConstructor(i)).Then(ctx, myPromisePostprocess(t,i))
+			q.Request(MyPromiseConstructor(i)).Then(ctx, 
+				myPromiseComplete(i))
 		}(i)
 	}
 	workers.Wait()

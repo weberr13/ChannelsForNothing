@@ -7,15 +7,24 @@ import (
 // Promiser takes requests and returns promises
 type Promiser chan Promise
 
+// Processor callback for the promise to be acted on 
+type Processor func(pr Promise)
+
+// Complete callback for Then
+type Complete func(p Promise, err error)
+
+// Open creates the promise
+type Open func() Promise
+
 // Request something
-func (p Promiser) Request(open func() Promise) Promise {
+func (p Promiser) Request(open Open) Promise {
 	pr := open()
 	p <- pr
 	return pr
 }
 
 // Run the processor for the Promiser
-func (p Promiser) Run(ctx context.Context, call func(pr Promise)) {
+func (p Promiser) Run(ctx context.Context, call Processor) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -36,7 +45,7 @@ func (p Promiser) Run(ctx context.Context, call func(pr Promise)) {
 
 // Promise is something that does async work
 type Promise interface {
-	Then(ctx context.Context, call func(p Promise, err error))
+	Then(ctx context.Context, call Complete)
 	Repl() chan Promise
 }
 
@@ -57,7 +66,7 @@ func (p GenericPromise) Repl() chan Promise {
 }
 
 // Then call the function on itself
-func (p *GenericPromise) Then(ctx context.Context, call func(p Promise, err error)) {
+func (p *GenericPromise) Then(ctx context.Context, call Complete) {
 	select {
 	case <-ctx.Done():
 		call(nil, ctx.Err())
