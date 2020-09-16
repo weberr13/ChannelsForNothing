@@ -25,6 +25,23 @@ type WriteRequest struct {
 	response chan error
 }
 
+// Then calls a function based on the result of the Write
+func (wr WriteRequest) Then(ctx context.Context, l func(error)) {
+	select {
+	case <-ctx.Done():
+		l(ctx.Err())
+	case err := <-wr.response:
+		l(err)
+	}
+}
+
+// WriteActor does writes named queues on behalf of others
+type WriteActor interface {
+	Start(ctx context.Context)
+	Writer(ctx context.Context, name string) (WriteRequester, error)
+	Dump(ctx context.Context, name string) ([]byte, error)
+}
+
 // WriteRequester accepts requests to write
 type WriteRequester chan WriteRequest
 
@@ -43,23 +60,6 @@ func (q WriteRequester) Request(ctx context.Context, data []byte) WriteRequest {
 	case q <- r:
 	}
 	return r
-}
-
-// Then calls a function based on the result of the Write
-func (wr WriteRequest) Then(ctx context.Context, l func(error)) {
-	select {
-	case <-ctx.Done():
-		l(ctx.Err())
-	case err := <-wr.response:
-		l(err)
-	}
-}
-
-// WriteActor does writes named queues on behalf of others
-type WriteActor interface {
-	Start(ctx context.Context)
-	Writer(ctx context.Context, name string) (WriteRequester, error)
-	Dump(ctx context.Context, name string) ([]byte, error)
 }
 
 // AsyncWriter writes to named Queues
