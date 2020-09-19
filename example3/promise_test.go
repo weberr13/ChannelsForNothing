@@ -10,7 +10,7 @@ func TestMyPromise(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	q := make(Promiser, 100)
-	st := make(chan map[string]interface{}, 100)
+	st := make(chan map[string]interface{},1)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -26,7 +26,7 @@ func TestMyPromise(t *testing.T) {
 	}
 	cancel()
 	wg.Wait()
-	state := <- st
+	state := <-st
 	if len(state["count"].([]int)) != 100 {
 		t.Fatal("internal state lost")
 	}
@@ -36,13 +36,14 @@ func TestMyPromiseAsync(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	q := make(Promiser, 100)
-	st := make(chan map[string]interface{}, 100)
+	st := make(chan map[string]interface{},1)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		myPrivateData := "found"
-		state := make(map[string]interface{}) // any reference object will suffice
+		// any reference object will work
+		state := make(map[string]interface{}) 
 		q.Run(ctx, myPromiseProcessor(myPrivateData, state))
 		st <- state
 	}()
@@ -51,14 +52,14 @@ func TestMyPromiseAsync(t *testing.T) {
 		workers.Add(1)
 		go func(i int) {
 			defer workers.Done()
-			q.Request(MyPromiseConstructor(i)).Then(ctx, 
+			q.Request(MyPromiseConstructor(i)).Then(ctx,
 				myPromiseComplete(i))
 		}(i)
 	}
 	workers.Wait()
 	cancel()
 	wg.Wait()
-	state := <- st
+	state := <-st
 	if len(state["count"].([]int)) != 100 {
 		t.Fatal("internal state lost")
 	}

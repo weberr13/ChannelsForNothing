@@ -4,14 +4,20 @@ import (
 	"context"
 )
 
+// Complete callback for Then
+type Complete func(p Promise, err error)
+
+// Promise is something that does async work
+type Promise interface {
+	Then(ctx context.Context, call Complete)
+	Repl() chan Promise
+}
+
 // Promiser takes requests and returns promises
 type Promiser chan Promise
 
-// Processor callback for the promise to be acted on 
+// Processor callback for the promise to be acted on
 type Processor func(pr Promise)
-
-// Complete callback for Then
-type Complete func(p Promise, err error)
 
 // Open creates the promise
 type Open func() Promise
@@ -24,13 +30,13 @@ func (p Promiser) Request(open Open) Promise {
 }
 
 // Run the processor for the Promiser
-func (p Promiser) Run(ctx context.Context, call Processor) {
+func (p Promiser) Run(ctx context.Context, work Processor) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case pr := <-p:
-			call(pr)
+			work(pr)
 			go func(pr Promise) {
 				select {
 				case <-ctx.Done():
@@ -43,20 +49,14 @@ func (p Promiser) Run(ctx context.Context, call Processor) {
 	}
 }
 
-// Promise is something that does async work
-type Promise interface {
-	Then(ctx context.Context, call Complete)
-	Repl() chan Promise
-}
-
 // GenericPromise struct for adding to other objects
 type GenericPromise struct {
 	done  bool
 	reply chan Promise
 }
 
-// Init yourself called by child implementations
-func (p *GenericPromise) Init() {
+// Super constructs yourself. Must be called by child implementations
+func (p *GenericPromise) Super() {
 	p.reply = make(chan Promise)
 }
 

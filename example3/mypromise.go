@@ -1,10 +1,11 @@
 package example3
 
-func myPromiseProcessor(privateData string, threadState map[string]interface{}) Processor {
+func myPromiseProcessor(privateData string, 
+	threadState map[string]interface{}) Processor {
 	return func(pr Promise) {
 		me := pr.(*MyPromise)
 		me.data[privateData] = 1
-		if _, ok := threadState["count"] ; !ok {
+		if _, ok := threadState["count"]; !ok {
 			threadState["count"] = []int{}
 		}
 		threadState["count"] = append(threadState["count"].([]int), 1)
@@ -34,7 +35,7 @@ func MyPromiseConstructor(i int) Open {
 			ident: i,
 			data:  make(map[string]interface{}),
 		}
-		p.Init()
+		p.Super()
 		return p
 	}
 }
